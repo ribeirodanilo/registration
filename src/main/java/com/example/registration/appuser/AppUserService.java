@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -32,17 +33,23 @@ public class AppUserService implements UserDetailsService {
                         String.format(USER_NOT_FOUND_MSG, email)));
     }
 
-    @Transactional
     public String signUpUser(AppUser appUser) {
-        boolean userExists = appUserRepository
-                .findByEmail(appUser.getEmail())
-                .isPresent();
+
+        Optional<AppUser> appUserOptional = appUserRepository
+                .findByEmail(appUser.getEmail());
+
+        boolean userExists = appUserOptional.isPresent();
 
         if (userExists) {
 
+            AppUser appUserSaved = appUserOptional.get();
+            if (appUserSaved.isEnabled()) {
+                throw new IllegalStateException("email already taken");
+            }
+            appUser.setId(appUserSaved.getId());
             // TODO: check if attributes are the same and
             // TODO: if email not confirmed send confirmation e-mail;
-            throw new IllegalStateException("email already taken");
+
         }
 
         String encodedPassword = bCryptPasswordEncoder.encode(appUser.getPassword());
@@ -61,7 +68,6 @@ public class AppUserService implements UserDetailsService {
 
         confirmationTokenService.saveConfirmationToken(confirmationToken);
 
-        // TODO: Send email
         return token;
     }
 
